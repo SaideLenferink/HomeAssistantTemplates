@@ -1,0 +1,20 @@
+# Input parameters for the timeslot
+{%- set numberOfSequentialHours = 3 -%} 
+{%- set lastHour = 23 -%}
+{%- set firstHour = 0 -%}
+
+# Calculation of the cheapest timeslot
+{%- set ns = namespace(counter=0, list=[], cheapestHour=today_at("00:00"), cheapestPrice=999.00) -%}
+{%- for i in range(firstHour + numberOfSequentialHours, lastHour + 1) -%}
+  {%- set ns.counter = 0.0 -%}
+  {%- for j in range(i - numberOfSequentialHours, i) -%}
+    {%- set ns.counter = ns.counter + state_attr('#!!YourEnergyPriceSensor!!', 'today')[j] -%}
+  {%- endfor -%}
+  {%- set ns.list = ns.list + [ns.counter] -%}
+  {%- if ns.counter < ns.cheapestPrice -%}
+    {%- set ns.cheapestPrice = ns.counter -%}
+    {%- set ns.cheapestHour = today_at("00:00") + timedelta(hours=i - numberOfSequentialHours) -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- set ns.cheapestPrice = ns.cheapestPrice / numberOfSequentialHours -%}
+{{ ns.cheapestHour }}

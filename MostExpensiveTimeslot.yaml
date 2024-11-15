@@ -1,0 +1,57 @@
+# This sensor shows when your energy prices will be most expensive for the timeslot. The first hour of the timeslot is always shown. 
+# The output takes into account whether prices for tomorrow have been published and whether the timeslot for today has passed before tomorrows timeslot. 
+	# If tomorrows prices are not yet available, todays timeslot will show regardless of whether it has already passed. 
+ 	# If tomorrows prices are available
+		# If todays timeslot has already passed, tomorrows timeslot will show
+		# Else if todays timeslot has not yet come to pass, it will be shown until that time. After which tomorrows timeslot will show. 
+	
+# Input parameters for the calculations
+{%- set numberOfSequentialHours = 3 -%}
+{%- set lastHour = 23 -%}
+{%- set firstHour = 0 -%}
+
+{%- set ns = namespace(counter=0, list=[], mostExpensiveHour=today_at("00:00"), mostExpensivePrice=0.00) -%}
+
+{%- if now().hour >= lastHour - numberOfSequentialHours + 1 -%}
+  {%- set price_data = state_attr('###sensor.nordpool_kwh_se3_sek_3_10_025###', 'tomorrow') -%}
+  {%- set start_hour = 24 -%}
+{%- else -%}
+  {%- set price_data = state_attr('###sensor.nordpool_kwh_se3_sek_3_10_025###', 'today') -%}
+  {%- set start_hour = 0 -%}
+{%- endif -%}
+
+{%- for i in range(firstHour + numberOfSequentialHours, lastHour + 1) -%}
+  {%- set ns.counter = 0.0 -%}
+  {%- for j in range(i - numberOfSequentialHours, i) -%}
+    {%- set ns.counter = ns.counter + price_data[j] -%}
+  {%- endfor -%}
+  {%- set ns.list = ns.list + [ns.counter] -%}
+  {%- if ns.counter > ns.mostExpensivePrice -%}
+    {%- set ns.mostExpensivePrice = ns.counter -%}
+    {%- set ns.mostExpensiveHour = today_at("00:00") + timedelta(hours=start_hour + i - numberOfSequentialHours) -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- set ns.mostExpensivePrice = ns.mostExpensivePrice / numberOfSequentialHours -%}
+
+{%- set now_time = now() -%}
+{%- set tomorrow_data = state_attr('sensor.nordpool_kwh_se3_sek_3_10_025', 'tomorrow') -%}
+
+{%- if ns.mostExpensiveHour < now_time and tomorrow_data -%}
+  {%- set price_data = tomorrow_data -%}
+  {%- set ns = namespace(counter=0, list=[], mostExpensiveHour=today_at("00:00"), mostExpensivePrice=0.00) -%}
+  {%- for i in range(firstHour + numberOfSequentialHours, lastHour + 1) -%}
+    {%- set ns.counter = 0.0 -%}
+    {%- for j in range(i - numberOfSequentialHours, i) -%}
+      {%- set ns.counter = ns.counter + price_data[j] -%}
+    {%- endfor -%}
+    {%- set ns.list = ns.list + [ns.counter] -%}
+    {%- if ns.counter > ns.mostExpensivePrice -%}
+      {%- set ns.mostExpensivePrice = ns.counter -%}
+      {%- set ns.mostExpensiveHour = today_at("00:00") + timedelta(hours=24 + i - numberOfSequentialHours) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- set ns.mostExpensivePrice = ns.mostExpensivePrice / numberOfSequentialHours -%}
+{%- endif -%}
+
+{{ ns.mostExpensiveHour }}

@@ -1,0 +1,41 @@
+# This sensor calculated the cheapest timeslot for today or tomorrow. 
+
+# Input parameters for the timeslot to be calculated 
+# The lastHour is used to determine when to look for tomorrows prices. 
+# Since they don't become available before 13h, the value needs to be at least 14h.
+# To restric the timeslot to a smaller range, offset the difference later on. 
+{%- set numberOfSequentialHours = 2 -%}
+{%- set lastHour = 14 -%}
+{%- set firstHour = 0 -%}
+
+{%- set ns = namespace(counter=0, list=[], cheapestHour=today_at("00:00"), cheapestPrice=999.00) -%}
+
+{%- set price_data_today = state_attr('###sensor.nordpool_kwh_se3_sek_3_10_025###', 'today') -%}
+{%- set price_data_tomorrow = state_attr('###sensor.nordpool_kwh_se3_sek_3_10_025###', 'tomorrow') -%}
+
+# Depending on the time of day and the calculated timeslot the output will be as follows (always the first hour of the timeslot): 
+	# If there is price data for tomorrow and the time is after 13h, show tomorrows timeslot 
+	# If the time is before 13h, show todays timeslot
+{%- if now().hour >= lastHour - numberOfSequentialHours + 1 and price_data_tomorrow is not none -%}
+  {%- set price_data = price_data_tomorrow -%}
+  {%- set start_hour = 24 -%}
+{%- else -%}
+  {%- set price_data = price_data_today -%}
+  {%- set start_hour = 0 -%}
+{%- endif -%}
+
+# Here the difference in wanted timeslot (lastHour) is put in. The ensures the sensor shows an output at all times while only calculating a timeslot between 0:00 and 6:00.
+{%- for i in range(firstHour + numberOfSequentialHours, lastHour -8 + 1) -%}
+  {%- set ns.counter = 0.0 -%}
+  {%- for j in range(i - numberOfSequentialHours, i) -%}
+    {%- set ns.counter = ns.counter + price_data[j] -%}
+  {%- endfor -%}
+  {%- set ns.list = ns.list + [ns.counter] -%}
+  {%- if ns.counter < ns.cheapestPrice -%}
+    {%- set ns.cheapestPrice = ns.counter -%}
+    {%- set ns.cheapestHour = today_at("00:00") + timedelta(hours=start_hour + i - numberOfSequentialHours) -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- set ns.cheapestPrice = ns.cheapestPrice / numberOfSequentialHours -%}
+{{ ns.cheapestHour }}

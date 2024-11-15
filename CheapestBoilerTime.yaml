@@ -1,0 +1,25 @@
+# To heat the boiler, a slot of 2 hours is usually enough. Set the last hour so that your showertime is after this.
+# The sensor can be used to trigger an automation that starts heating your water boiler at the best (cheapest) time.
+
+# Input parameters for the calculated timeslot
+{%- set numberOfSequentialHours = 2 -%}
+{%- set lastHour = 6 -%}
+{%- set firstHour = 0 -%}
+
+#Calculate the cheapest timeslot based on the parameters
+{%- if state_attr('###sensor.nordpool_kwh_se3_sek_3_10_025###', 'tomorrow_valid') == true -%}
+  {%- set ns = namespace(counter=0, list=[], cheapestHour=today_at("00:00") + timedelta(hours=24), cheapestPrice=999.00) -%}
+  {%- for i in range(firstHour + numberOfSequentialHours, lastHour+1) -%}
+    {%- set ns.counter = 0.0 -%}
+    {%- for j in range(i-numberOfSequentialHours, i) -%}
+      {%- set ns.counter = ns.counter + state_attr('###sensor.nordpool_kwh_se3_sek_3_10_025###', 'tomorrow')[j] -%}
+    {%- endfor -%}
+    {%- set ns.list = ns.list + [ns.counter] -%}
+    {%- if ns.counter < ns.cheapestPrice -%}
+      {%- set ns.cheapestPrice = ns.counter -%}
+      {%- set ns.cheapestHour = today_at("00:00") + timedelta(hours=24 + i - numberOfSequentialHours) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- set ns.cheapestPrice = ns.cheapestPrice / numberOfSequentialHours -%}
+  {{ ns.cheapestHour }}
+{%- endif -%}

@@ -1,3 +1,4 @@
+# Sensor can be used to trigger automations or to show the cheapest hours on your dashboard.
 # Input parameters for the timeslot
 {%- set numberOfSequentialHours = 3 -%} 
 {%- set lastHour = 23 -%}
@@ -8,7 +9,7 @@
 {%- for i in range(firstHour + numberOfSequentialHours, lastHour + 1) -%}
   {%- set ns.counter = 0.0 -%}
   {%- for j in range(i - numberOfSequentialHours, i) -%}
-    {%- set ns.counter = ns.counter + state_attr('#!!YourEnergyPriceSensor!!', 'today')[j] -%}
+    {%- set ns.counter = ns.counter + state_attr('###YourEnergyPriceSensor###', 'today')[j] -%}
   {%- endfor -%}
   {%- set ns.list = ns.list + [ns.counter] -%}
   {%- if ns.counter < ns.cheapestPrice -%}
